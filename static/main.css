@@ -1,0 +1,20 @@
+.dark-theme {
+    color: #EEEEEE;
+    background: #151515;
+  }
+
+.center-horizontal {
+    margin: auto;
+    width: 50%;
+    padding: 10px;
+}
+
+.center-vertical{
+    margin: auto;
+    height: 50%;
+    padding: 10px;
+}
+
+#error-message{
+    color: #dc3545;
+}

@@ -1,0 +1,56 @@
+# Workflow name
+name: aws-clean
+on: 
+  push:
+    # Push events on stub/clean branch
+    branches:
+      - stub/clean
+
+# Workflow jobs
+jobs:
+  aws-clean:
+    name: Clean AWS app, infra and AMI 
+    runs-on: ubuntu-latest
+    #All steps running on aws-deploy job.
+    steps: 
+
+      - name: Check out the repo
+        uses: actions/checkout@v2
+
+      - name: Install Terraform
+        uses: hashicorp/setup-terraform@v1
+
+      - name: Terminate deployed app instance
+        env:
+          # Required environment variables for instance deletion to be performed correctly
+          AWS_ACCESS_KEY_ID: '${{ secrets.AWS_ACCESS_KEY_ID }}'
+          AWS_SECRET_ACCESS_KEY: '${{ secrets.AWS_SECRET_ACCESS_KEY }}'
+        run: |
+          cd ./aws_deployment/app && terraform init -backend-config='bucket=sentiment-analyzer-app-bucket' -backend-config='key=sentiment-analyzer-app-bucket/app.tfstate' -backend-config='region=eu-west-1' && terraform destroy -auto-approve
+
+      - name: Destroy infra
+        env:
+          # Required environment variables for instance deletion to be performed correctly
+          AWS_ACCESS_KEY_ID: '${{ secrets.AWS_ACCESS_KEY_ID }}'
+          AWS_SECRET_ACCESS_KEY: '${{ secrets.AWS_SECRET_ACCESS_KEY }}'
+        run: |
+          cd ./aws_deployment/infra && terraform init -backend-config='bucket=sentiment-analyzer-infra-bucket' -backend-config='key=sentiment-analyzer-infra-bucket/infra.tfstate' -backend-config='region=eu-west-1' && terraform destroy -auto-approve
+
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.9
+      
+      - name: Install aws-amicleaner
+        run: |
+          python -m pip install --upgrade pip
+          pip install aws-amicleaner
+
+      - name: Remove sentiment analyzer AMI
+        env:
+          # Required environment variables for AMI deletion to be performed correctly
+          AWS_ACCESS_KEY_ID: '${{ secrets.AWS_ACCESS_KEY_ID }}'
+          AWS_SECRET_ACCESS_KEY: '${{ secrets.AWS_SECRET_ACCESS_KEY }}'
+          AWS_DEFAULT_REGION: 'eu-west-1'
+        run: |
+          amicleaner --mapping-key name --mapping-values sentiment-analyzer-ami --keep-previous -1 --ami-min-days -1 -f

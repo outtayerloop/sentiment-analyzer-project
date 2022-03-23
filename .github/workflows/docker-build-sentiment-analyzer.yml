@@ -1,0 +1,18 @@
+# Workflow name
+name: Test docker image build 
+
+# Name of event which trigger the workflow 
+on: [pull_request]
+
+# Workflow jobs
+jobs:
+  build-image-test: 
+    runs-on: ubuntu-latest
+    #All steps running on execute-test job
+    steps: 
+      #Checkout the git repository and workflow can access it
+      - name: Check out the repo
+        uses: actions/checkout@v2 
+      - name: Build Docker image
+        id: build
+        run: docker build -t "sentiment-analyzer" .

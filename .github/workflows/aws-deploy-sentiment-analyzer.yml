@@ -1,0 +1,70 @@
+# Workflow name
+name: aws-deploy-sentiment-analyzer-actions
+
+# Name of event which trigger the workflow 
+on: 
+  workflow_run:
+    workflows: ["Publish Docker image"]
+    types:
+      - completed
+
+# Workflow jobs
+jobs:
+  aws-deploy:
+    name: Deploy sentiment analyzer app to AWS
+    runs-on: ubuntu-latest
+    #All steps running on aws-deploy job.
+    steps: 
+      - name: Check out the repo
+        uses: actions/checkout@v2
+
+      - name: Install Ansible
+        run: |
+          sudo apt update && \
+          sudo apt install software-properties-common --yes && \
+          sudo apt-add-repository --update ppa:ansible/ansible --yes && \
+          sudo apt install ansible --yes
+
+      - name: Install Packer
+        run: |
+          sudo apt-get install unzip --yes && \
+          wget https://releases.hashicorp.com/packer/1.7.8/packer_1.7.8_linux_amd64.zip && \
+          unzip packer_1.7.8_linux_amd64.zip && \
+          sudo mv packer /usr/local/bin && \
+          rm packer_1.7.8_linux_amd64.zip
+
+      - name: Get current runner public IP
+        id: ip
+        uses: haythem/public-ip@v1.2
+
+      - name: Store current runner public IP in environment variable
+        run: export RUNNER_PUBLIC_IP="$(echo ${{ steps.ip.outputs.ipv4 }})" && echo $RUNNER_PUBLIC_IP
+
+      - name: Build sentiment analyzer AMI
+        env:
+          # Required environment variables for the AMI build to be performed correctly
+          AWS_ACCESS_KEY_ID: '${{ secrets.AWS_ACCESS_KEY_ID }}'
+          AWS_SECRET_ACCESS_KEY: '${{ secrets.AWS_SECRET_ACCESS_KEY }}'
+        run: |
+          cd ./aws_deployment/ami && packer build -var runner_public_ip=$RUNNER_PUBLIC_IP -var app_port=5000 build-ami.json
+
+      - name: Install Terraform
+        uses: hashicorp/setup-terraform@v1
+
+      #Builds the VPC with subnets, route tables, security groups etc. Will not build again if no changes detected by Terraform.
+      - name: Build infrastructure
+        env:
+          # Required environment variables for the S3 backend to be initialized correctly
+          AWS_ACCESS_KEY_ID: '${{ secrets.AWS_ACCESS_KEY_ID }}'
+          AWS_SECRET_ACCESS_KEY: '${{ secrets.AWS_SECRET_ACCESS_KEY }}'
+        run: |
+          cd ./aws_deployment/infra && terraform init -backend-config='bucket=sentiment-analyzer-infra-bucket' -backend-config='key=sentiment-analyzer-infra-bucket/infra.tfstate' -backend-config='region=eu-west-1' && terraform apply -auto-approve
+
+      # Deploys single public instance with the running Docker container of the application.
+      - name: Deploy sentiment analyzer app
+        env:
+          # Required environment variables for the S3 backend to be initialized correctly
+          AWS_ACCESS_KEY_ID: '${{ secrets.AWS_ACCESS_KEY_ID }}'
+          AWS_SECRET_ACCESS_KEY: '${{ secrets.AWS_SECRET_ACCESS_KEY }}'
+        run: |
+          cd ./aws_deployment/app && terraform init -backend-config='bucket=sentiment-analyzer-app-bucket' -backend-config='key=sentiment-analyzer-app-bucket/app.tfstate' -backend-config='region=eu-west-1' && terraform apply -auto-approve

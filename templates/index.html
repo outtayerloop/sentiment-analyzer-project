@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sentiment analyzer</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
+          integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+    <link rel="stylesheet" href="../static/main.css">
+</head>
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <a class="navbar-brand " href="#">Sentiment analyzer</a>
+    <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+    </button>
+</nav>
+
+<body class="dark-theme">
+
+<div class="center-vertical">
+    <div class="form-group center-horizontal">
+        <p id="msg" class="lead">Write a sentence</p>
+        <textarea type="sentence" class="form-control control-label" id="sentence" maxlength="500"></textarea>
+        </br>
+        <p id="error-message">Invalid input</p>
+        </br>
+
+        <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+
+        <script>
+
+            `use strict`
+
+            /***
+             * Shows or hides the error message from the provided visibility.
+             * @param visibility the visibility of the error message : boolean true or false
+             */
+            const toggleErrorMessage = visibility => {
+                const errorMessage = document.getElementById(`error-message`)
+                errorMessage.style.opacity = visibility ? `1` : `0`
+            }
+
+            /***
+             * Triggered when the input submit button is clicked.
+             * Makes a sentiment analysis request to the API endpoint and
+             * fills the result zone with the response if it's a 200 OK,
+             * else shows the hidden error message.
+             */
+            const onSubmittedInput = () => {
+                if (!hasInvalidInput())
+                    sendSentimentAnalysisRequest()
+            }
+
+            /***
+             * Sends a request to the sentiment analysis endpoint and updates the UI accordingly.
+             */
+            const sendSentimentAnalysisRequest = () => {
+                [analyzerEndpointUrl, userInputJson, options] = getAnalyzerRequestMetaData()
+                axios.post(analyzerEndpointUrl, userInputJson, options)
+                    .then(res => handleSentimentAnalysisRequestSuccess(res))
+                    .catch(err => handleSentimentAnalysisRequestError(err))
+            }
+
+            /***
+             * Displays the extracted sentiment in the appropriate zone of the UI.
+             * @param res sentiment analysis API endpoint axios-wrapped response
+             */
+            const handleSentimentAnalysisRequestSuccess = res => {
+                const resultZone = document.getElementById(`result`)
+                resultZone.textContent = res.data
+            }
+
+            /***
+             * Shows the invalid input error message if response status is 400,
+             * else shows a pop up with the error message.
+             * @param err Error thrown
+             */
+            const handleSentimentAnalysisRequestError = err => {
+                if (err.response && err.response.status === 400)
+                    alert(err.response.data.message)
+                else
+                    alert(err.message)
+            }
+
+            /***
+             * Return the sentiment analysis request's full URL, POST data and options (headers).
+             * @returns {[string, string, {headers: {"content-Type": string}}]} The above mentioned meta data
+             */
+            const getAnalyzerRequestMetaData = () => {
+                const analyzerEndpointUrl = `{{analyzerEndpointUrl}}`
+                const inputValue = document.getElementById(`sentence`).value
+                const userInputJson = JSON.stringify({'{{inputKey}}': inputValue})
+                const applicationContentType = `{{applicationContentType}}`
+                const options = {headers: {'content-Type': applicationContentType}}
+                return [analyzerEndpointUrl, userInputJson, options]
+            }
+
+            /***
+             * Determine whether the input text value is valid or not.
+             * @returns {boolean} true if the input value is null or empty, false otherwise
+             */
+            const hasInvalidInput = () => {
+                const inputValue = document.getElementById(`sentence`).value
+                return inputValue === null || inputValue === ``
+            }
+
+            /***
+             * Binds an event listener for the leydown event on the text input element.
+             * It is used to hide or display the error message if the input respectively
+             * contains or not some text.
+             * The key code used is taken from this MDN documentation web page :
+             * https://developer.mozilla.org/en-US/docs/Web/API/KeyboardEvent/code/code_values
+             */
+            const bindKeyDownEventListenerToTextInput = () => {
+                const textInput = document.getElementById(`sentence`)
+                textInput.addEventListener(`keyup`, e => {
+                    if (e.code === `Backspace` && hasInvalidInput())
+                        toggleErrorMessage(true)
+                    else
+                        toggleErrorMessage(false)
+                })
+            }
+
+            toggleErrorMessage(false)
+            bindKeyDownEventListenerToTextInput()
+
+        </script>
+
+        <div class="pull-right">
+            <button id="submit-btn" onclick="onSubmittedInput()" type="submit" class="btn btn-dark">Analyze</button>
+        </div>
+
+        </br>
+
+        The result is :
+        <div id="result" style=" height:35px; overflow:auto;" class="bg-dark text-center lead"></div>
+
+    </div>
+</div>
+
+</body>
+
+<footer class="text-center text-lg-start bg-dark text-muted fixed-bottom">
+    <div class="text-center p-4" style="background-color: rgba(0, 0, 0, 0.05);">
+        © 2021 Copyright:
+        <a class="text-reset fw-bold">Carine TALANDIER, Wiem CHOUCHANE, Brunelle MALANDILA LEYA </a>
+    </div>
+</footer>
+
+</html>

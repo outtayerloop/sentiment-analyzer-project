@@ -1,0 +1,22 @@
+---
+- hosts: all
+  tasks:
+
+    - name: Uninstall old Docker version if present
+      become: yes
+      apt: 
+        pkg:
+        - docker
+        - docker-engine
+        - docker.io
+        - containerd
+        - runc
+        update_cache: yes 
+        state: absent
+
+    - name: Install Docker engine from official convenience script
+      ansible.builtin.shell: sudo curl -sSL https://get.docker.com/ | sh
+
+    - name: Pull sentiment analyzer latest DockerHub image
+      become: yes
+      ansible.builtin.shell: docker pull start2015/sentiment-analyzer-image
